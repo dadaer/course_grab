@@ -12,4 +12,4 @@
 
 测试机器：MacBook Pro，芯片 M1 Pro 10核 CPU，内存 16GB，操作系统 MacOS Ventura 13.0.1
 
-![2273447026857f012fb522e9b644cc31](/Users/dalang/Downloads/Java/Java项目/course/result.JPG)
+![2273447026857f012fb522e9b644cc31](result.JPG)
