@@ -1,6 +1,6 @@
 ## course_grab 抢课系统
 
-本项目 fork 自 https://github.com/YiMing-Chris/project，做了如下fix和优化
+本项目 fork 自 [抢课系统 @Author YiMing-Chris](https://github.com/YiMing-Chris/project)，做了如下fix和优化
 
 - 原项目有依赖版本问题。这里更换了更新的springboot版本
 - 原项目使用了Hibernate和Javax的相关注解，但并没有引入相关依赖，因为相关功能并不核心，这里直接删除了相关注解
