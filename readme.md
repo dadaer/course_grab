@@ -1,4 +1,4 @@
-## course_grab 抢课系统
+## course_grab 高并发抢课系统
 
 本项目 fork 自 [抢课系统 @Author YiMing-Chris](https://github.com/YiMing-Chris/project)，做了如下fix和优化
 
@@ -8,3 +8,8 @@
 - 原项目中rabbitmq没有配置交换机和队列的bind，这里在rabbitmq的管理界面采取了手动bind
 - 原项目中rabbitmq采用的是自动ack，本项目使用了手动ack，提升消息消费的可靠性
 
+## 实测数据
+
+测试机器：MacBook Pro，芯片 M1 Pro 10核 CPU，内存 16GB，操作系统 MacOS Ventura 13.0.1
+
+![2273447026857f012fb522e9b644cc31](/Users/dalang/Downloads/Java/Java项目/course/result.JPG)
