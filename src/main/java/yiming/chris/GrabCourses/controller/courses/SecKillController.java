@@ -12,6 +12,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import yiming.chris.GrabCourses.annotation.AccessLimit;
 import yiming.chris.GrabCourses.domain.SecKillOrder;
 import yiming.chris.GrabCourses.domain.Student;
 import yiming.chris.GrabCourses.message.SecKillMessage;
@@ -71,6 +72,7 @@ public class SecKillController implements InitializingBean {
 
 
     @RequestMapping("/grab")
+    @AccessLimit(seconds = 30, maxValue = 5)
     public String asyncSecKill(Model model, Student student, @RequestParam("coursesId") Long coursesId) {
         if (student == null) {
             return "login";
@@ -92,9 +94,15 @@ public class SecKillController implements InitializingBean {
                 userId.toString()
         );
         int r = result.intValue();
+        if (r == 1) {
+            log.info("该课程已被抢完");
+            coursesSecKillOverMap.put(coursesId, true);
+            return "kill_fail";
+        }
         // 2.判断结果是否为0
-        if (r != 0) {
+        if (r == 2) {
             // 2.1.不为0 ，代表没有购买资格
+            log.info("该学生已抢到课");
             return "kill_fail";
         }
 
