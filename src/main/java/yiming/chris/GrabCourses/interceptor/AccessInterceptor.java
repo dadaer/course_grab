@@ -29,119 +29,120 @@ import java.util.concurrent.TimeUnit;
  *
  * @Author: ChrisEli
  */
-    @Component
-    public class AccessInterceptor extends HandlerInterceptorAdapter {
+@Component
+public class AccessInterceptor extends HandlerInterceptorAdapter {
 
-        @Autowired
-        private StudentService studentService;
-        @Autowired
-        private RedisTemplate<String, Object> redisTemplate;
+    @Autowired
+    private StudentService studentService;
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
-        /**
-         * 方法执行前，对方法进行拦截查看是否包含@AccessLimit注解，并进行相应的设置
-         * @param request
-         * @param response
-         * @param handler
-         * @return
-         * @throws Exception
-         */
-        @Override
-        public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-            if (handler instanceof HandlerMethod) {
-                // 获取用户并保存到ThreadLocal中
-                Student student = getUser(request);
-                UserContext.setUser(student);
-                System.out.println("当前线程用户: " +UserContext.getStudent().getId());
+    /**
+     * 方法执行前，对方法进行拦截查看是否包含@AccessLimit注解，并进行相应的设置
+     * @param request
+     * @param response
+     * @param handler
+     * @return
+     * @throws Exception
+     */
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        if (handler instanceof HandlerMethod) {
+            // 获取用户并保存到ThreadLocal中
+            Student student = getUser(request);
+            UserContext.setUser(student);
+            System.out.println("当前线程用户: " + UserContext.getStudent().getId());
 
-                HandlerMethod handlerMethod = (HandlerMethod) handler;
-                // 获取方法上@AccessLimit的注解
-                AccessLimit accessLimit = handlerMethod.getMethodAnnotation(AccessLimit.class);
-                if (accessLimit == null) {
-                    return true;
-                }
-                // 存在@AccessLimit注解，则需要对注解配置进行获取并进行处理
-                int maxValue = accessLimit.maxValue();
-                int seconds = accessLimit.seconds();
-                boolean needLogin = accessLimit.needLogin();
+            HandlerMethod handlerMethod = (HandlerMethod) handler;
+            // 获取方法上@AccessLimit的注解
+            AccessLimit accessLimit = handlerMethod.getMethodAnnotation(AccessLimit.class);
 
-                String key = request.getRequestURI();
+            if (accessLimit == null) {
+                return true;
+            }
+            // 存在@AccessLimit注解，则需要对注解配置进行获取并进行处理
+            int maxValue = accessLimit.maxValue();
+            int seconds = accessLimit.seconds();
+            boolean needLogin = accessLimit.needLogin();
 
-                if (needLogin && UserContext.getStudent() == null) {
-                    render(response, CodeMsg.SESSION_ERROR);
-                    return false;
-                }
+            String key = request.getRequestURI();
 
-                // 不需要登录则根据是否包含user来拼接key
-                key += "_" + (UserContext.getStudent() != null ? student.getId() : "");
-
-                // 利用Redis实现限流
-                AccessLimitKey accessLimitKey = AccessLimitKey.getAccessKeyWithExpire(seconds);
-                String accessKey = accessLimitKey.getPrefix() + ":" + key;
-                Integer count = (Integer) redisTemplate.opsForValue().get(accessKey);
-                if (count == null) {
-                    redisTemplate.opsForValue().set(accessKey, 1);
-                    redisTemplate.expire(accessKey, accessLimitKey.expireSeconds(), TimeUnit.SECONDS);
-                }
-                // 仍然在限制内，放行
-                else if (count <= maxValue) {
-                    redisTemplate.opsForValue().increment(accessKey);
-                }
-                // 超出最大访问次数限制，拒绝后续访问
-                else {
-                    render(response, CodeMsg.ACCESS_BEYOND_LIMIT);
-                    System.out.println(UserContext.getStudent().getId()+"出最大访问次数限制，拒绝后续访问");
-                    return false;
-                }
+            if (needLogin && UserContext.getStudent() == null) {
+                render(response, CodeMsg.SESSION_ERROR);
+                return false;
             }
 
-            return true;
-        }
+            // 不需要登录则根据是否包含user来拼接key
+            key += "_" + (UserContext.getStudent() != null ? student.getId() : "");
 
-        /**
-         * 需要登录却没有登录
-         * 返回页面，被拦截器拦截
-         * @param response
-         * @param codeMsg
-         */
-        private void render(HttpServletResponse response, CodeMsg codeMsg) throws IOException {
-            response.setContentType("application/json;charset=UTF-8");
-            OutputStream outputStream = response.getOutputStream();
-            String out = JSON.toJSONString(ServerResponse.error(codeMsg));
-            outputStream.write(out.getBytes("UTF-8"));
-            outputStream.flush();
-            outputStream.close();
-        }
-
-        //从request中获取登录用户
-        public Student getUser(HttpServletRequest request) {
-            String paramToken = request.getParameter(StudentService.COOKIE_TOKEN_NAME);
-            String cookieToken = getCookieValue(request, StudentService.COOKIE_TOKEN_NAME);
-            if (StringUtils.isEmpty(cookieToken) && StringUtils.isEmpty(paramToken)) {
-                return null;
+            // 利用Redis实现限流
+            AccessLimitKey accessLimitKey = AccessLimitKey.getAccessKeyWithExpire(seconds);
+            String accessKey = accessLimitKey.getPrefix() + ":" + key;
+            Integer count = (Integer) redisTemplate.opsForValue().get(accessKey);
+            if (count == null) {
+                redisTemplate.opsForValue().set(accessKey, 1);
+                redisTemplate.expire(accessKey, accessLimitKey.expireSeconds(), TimeUnit.SECONDS);
+                System.out.println(accessKey + " 第1次点击抢课按钮");
+            } else if (count < maxValue) { // 仍然在限制内，放行
+                Long result = redisTemplate.opsForValue().increment(accessKey);
+                System.out.println(accessKey + " 第" + result + "次点击抢课按钮");
+            } else {
+                render(response, CodeMsg.ACCESS_BEYOND_LIMIT);
+                System.out.println(UserContext.getStudent().getId() + "出最大访问次数限制，拒绝后续访问");
+                return false;
             }
-            // 优先从参数中获取用户token
-            String token = StringUtils.isEmpty(paramToken) ? cookieToken : paramToken;
-            // 根据Token查询User
-            return studentService.getUserByToken(token);
         }
 
-        /**
-         * 根据Cookie的名称获取对应的值
-         * @param request
-         * @param name
-         * @return
-         */
-        private String getCookieValue(HttpServletRequest request, String name) {
-            Cookie[] cookies = request.getCookies();
-            // 压测下发现问题，cookies可能为空
-            if (cookies != null) {
-                for (Cookie cookie : cookies) {
-                    if (cookie.getName().equals(name)) {
-                        return cookie.getValue();
-                    }
-                }
-            }
+        return true;
+    }
+
+    /**
+     * 需要登录却没有登录
+     * 返回页面，被拦截器拦截
+     *
+     * @param response
+     * @param codeMsg
+     */
+    private void render(HttpServletResponse response, CodeMsg codeMsg) throws IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        OutputStream outputStream = response.getOutputStream();
+        String out = JSON.toJSONString(ServerResponse.error(codeMsg));
+        outputStream.write(out.getBytes("UTF-8"));
+        outputStream.flush();
+        outputStream.close();
+    }
+
+    //从request中获取登录用户
+    public Student getUser(HttpServletRequest request) {
+        String paramToken = request.getParameter(StudentService.COOKIE_TOKEN_NAME);
+        String cookieToken = getCookieValue(request, StudentService.COOKIE_TOKEN_NAME);
+        if (StringUtils.isEmpty(cookieToken) && StringUtils.isEmpty(paramToken)) {
             return null;
         }
-
+        // 优先从参数中获取用户token
+        String token = StringUtils.isEmpty(paramToken) ? cookieToken : paramToken;
+        // 根据Token查询User
+        return studentService.getUserByToken(token);
     }
+
+    /**
+     * 根据Cookie的名称获取对应的值
+     *
+     * @param request
+     * @param name
+     * @return
+     */
+    private String getCookieValue(HttpServletRequest request, String name) {
+        Cookie[] cookies = request.getCookies();
+        // 压测下发现问题，cookies可能为空
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (cookie.getName().equals(name)) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+}

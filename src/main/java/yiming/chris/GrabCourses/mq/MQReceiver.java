@@ -55,7 +55,7 @@ public class MQReceiver {
         logger.info("队列1收到用户" + student.getId() + "秒杀" + CourseId + "商品请求");
 
         // 这里加分布式锁保证原子性
-        RLock rLock = redissonClient.getLock("lock:courses" + student.getId());
+        RLock rLock = redissonClient.getLock("lock:courses" + CourseId + student.getId());
         boolean isLock = rLock.tryLock(1, 10, TimeUnit.SECONDS);
         if (!isLock) {
             logger.error("获取分布式锁失败");
@@ -70,7 +70,7 @@ public class MQReceiver {
         }
 
         // 判断是否已经成功抢课，防止一人多次抢课成功
-        // TODO 这里sql可以增加索引
+        // 这里sql增加了索引
         SecKillOrder order = orderService.getSecKillOrderByStudentIdAndCoursesId(student.getId(), CourseId);
         if (order != null) {
             return;

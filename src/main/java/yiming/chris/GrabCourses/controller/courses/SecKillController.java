@@ -72,7 +72,7 @@ public class SecKillController implements InitializingBean {
 
 
     @RequestMapping("/grab")
-    @AccessLimit(seconds = 30, maxValue = 5)
+    @AccessLimit(seconds = 1, maxValue = 3)
     public String asyncSecKill(Model model, Student student, @RequestParam("coursesId") Long coursesId) {
         if (student == null) {
             return "login";
