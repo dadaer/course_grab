@@ -1,7 +1,6 @@
 package yiming.chris.GrabCourses.mq;
 
 import com.rabbitmq.client.Channel;
-import org.redisson.Redisson;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
